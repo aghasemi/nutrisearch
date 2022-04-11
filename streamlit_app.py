@@ -31,7 +31,7 @@ else:
     for i,(col, dt) in enumerate(T1.dtypes.items()):
         alias = f'C{i+1}'
         dt = str(dt)
-        dt = 'Text' if dt=='object' else 'Number' if 'float' in dt else dt
+        dt = 'Text' if dt=='object' else 'Number' if any(x in dt for x in {'float','int'}) else dt
         md_table += [[alias, str(col), str(dt)]]
         aliases[alias] = f'"{col}"'
         if dt=='object': 
