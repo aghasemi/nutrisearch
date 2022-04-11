@@ -17,7 +17,7 @@ df  = dfs [i]
 
 
 df.columns = [col if isinstance(col, str) else ' - '.join(dict.fromkeys(col)).strip() for col in df.columns.values] # https://stackoverflow.com/questions/14507794/pandas-how-to-flatten-a-hierarchical-index-in-columns
- df.columns = [re.sub("[\[].*?[\]]", "", c) for c in df.columns.values]
+df.columns = [re.sub("[\[].*?[\]]", "", c) for c in df.columns.values]
 
 print(df.columns)
 
