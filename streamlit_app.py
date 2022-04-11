@@ -29,6 +29,7 @@ for i,(col, dt) in enumerate(T1.dtypes.items()):
     dt = 'Text' if dt=='object' else 'Number' if 'float' in dt else dt
     md_table += [[alias, str(col), str(dt)]]
     aliases[alias] = f'"{col}"'
+    if dt=='object': T1[col] = T1[col].apply(lambda s: re.sub("[\[].*?[\]]", "", s))
 
 st.markdown('Columns')
 md_table = pd.DataFrame(data=md_table, columns=('Column Alias', 'Column Name', 'Column Type'), index = None)
