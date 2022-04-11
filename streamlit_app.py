@@ -1,5 +1,5 @@
 import pandas as pd 
-import duckdb 
+import duckdb, re
 
 import streamlit as st
 
@@ -17,13 +17,14 @@ df  = dfs [i]
 
 
 df.columns = [col if isinstance(col, str) else ' - '.join(dict.fromkeys(col)).strip() for col in df.columns.values] # https://stackoverflow.com/questions/14507794/pandas-how-to-flatten-a-hierarchical-index-in-columns
- 
+ df.columns = [re.sub("[\[].*?[\]]", "", c) for c in df.columns.values]
+
 print(df.columns)
 
 aliases = dict({})
 md_table = []
 for i,(col, dt) in enumerate(df.dtypes.items()):
-    alias = f'"C#{i+1}"'
+    alias = f'C{i+1}'
     dt = str(dt)
     dt = 'Text' if dt=='object' else 'Number' if 'float' in dt else dt
     md_table += [[alias, str(col), str(dt)]]
