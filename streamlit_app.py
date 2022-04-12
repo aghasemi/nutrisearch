@@ -1,14 +1,33 @@
 import pandas as pd 
-import duckdb, re
+import duckdb, re, math
 
 import streamlit as st
+
+def extract_number(s, num_sep=',', dec_sep='.', is_float = False):
+    s =  re.sub("[\[\)].*?[\)\]]", "", str(s))
+    s = s.split(' ')[0]
+    s = s.replace(num_sep, '')
+    s = s.replace('%', '')
+    s = s.replace('\xa0', '')
+    s = s.replace('\U00002013', '-') 
+    s = s.replace('−', '-') 
+    s = s.replace(dec_sep, '.')
+    s = s.strip()
+    s = float(s)
+    return s if is_float else int(s) if not math.isnan(s) else 0
+
 
 
 st.set_page_config(layout='wide')
 
-url = st.text_input(label='Please enter page address', value = 'https://en.wikipedia.org/wiki/List_of_largest_cities')
+url = st.text_input(label='Please enter page address', value = 'https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(PPP)_per_capita')
 
-dfs = pd.read_html(url)
+with st.expander(label = 'Modify thousands and decimal separator character'):
+    num_sep = st.selectbox(label = 'Thousands separator', options=[',', '.', '\xa0'], index=0)
+    dec_sep = st.selectbox(label = 'Thousands separator', options=[',', '.'], index=1)
+
+
+dfs = pd.read_html(url, thousands=num_sep, decimal=dec_sep)
 
 indices = [i for i,df in enumerate(dfs) if len(df)>10 ]
 
@@ -24,19 +43,27 @@ else:
     T1.columns = [col if isinstance(col, str) else ' - '.join(dict.fromkeys(col)).strip() for col in T1.columns.values] # https://stackoverflow.com/questions/14507794/pandas-how-to-flatten-a-hierarchical-index-in-columns
     T1.columns = [re.sub("[\[].*?[\]]", "", c) for c in T1.columns.values]
 
-    print(T1.columns)
+    data_types_list = ['Text', 'Integer', 'Float']
+    data_types = dict({x:i for i,x in enumerate(data_types_list)})
 
-    aliases = dict({})
-    md_table = []
-    for i,(col, dt) in enumerate(T1.dtypes.items()):
-        alias = f'C{i+1}'
-        dt = str(dt)
-        dt = 'Text' if dt=='object' else 'Number' if any(x in dt for x in {'float','int'}) else dt
-        md_table += [[alias, str(col), str(dt)]]
-        aliases[alias] = f'"{col}"'
-        if dt=='object': 
-            print(f'Pruning {col}')
-            T1[col] = T1[col].apply(lambda s: re.sub("[\[].*?[\]]", "", s))
+    with st.expander(label = 'Modify data types of columns'):
+        aliases = dict({})
+        md_table = []
+        for i,(col, dt) in enumerate(T1.dtypes.items()):
+            alias = f'C{i+1}'
+            dt = str(dt)
+            dt = 'Integer' if 'int' in dt else 'Float' if 'float' in dt  else 'Text'
+            aliases[alias] = f'"{col}"'
+
+            #c1, c2 =  st.columns([1,3])
+            #c1.markdown(f'{i+1:3}. {alias} {col}')
+            dt = st.selectbox(label = f'Please choose data type for {col}', options = data_types_list, key = col, index = data_types[dt])
+            
+            if dt=='Text': T1[col] = T1[col].apply(lambda s: re.sub("[\[].*?[\]]", "", str(s)).strip('*').strip())
+            if dt=='Integer': T1[col] = T1[col].apply(lambda s: extract_number(str(s), num_sep=num_sep, dec_sep = dec_sep, is_float = False))
+            if dt=='Float': T1[col] = T1[col].apply(lambda s: extract_number(str(s), num_sep=num_sep, dec_sep = dec_sep, is_float = True))
+            
+            md_table += [[alias, str(col), str(dt)]]
 
 
     st.markdown('Columns')
