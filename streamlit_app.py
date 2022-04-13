@@ -29,19 +29,26 @@ with st.expander(label = 'Modify thousands and decimal separator character'):
 
 dfs = pd.read_html(url, thousands=num_sep, decimal=dec_sep)
 
-indices = [i for i,df in enumerate(dfs) if len(df)>10 ]
+indices = []
+
+for i,df in enumerate(dfs):
+    if len(df)<10: continue
+    df.columns = [col if isinstance(col, str) else ' - '.join(dict.fromkeys(col)).strip() if isinstance(col, tuple) else str(col) for col in df.columns.values] # https://stackoverflow.com/questions/14507794/pandas-how-to-flatten-a-hierarchical-index-in-columns
+    df.columns = [re.sub("[\[].*?[\]]", "", c) for c in df.columns.values]
+    indices.append(i)
+
 
 if len(indices) == 0:
     st.markdown(f'No table found in {url}')
 else:
 
-    i = st.selectbox(label='Please choose the table in the page', options=indices, index  = 0)
-
+    tables = [f'{i} ({len(dfs[i])} rows. Columns: <{", ".join(dfs[i].columns.values)}>)' for i in indices]
+    i = st.selectbox(label='Please choose the table in the page', options=tables, index = 0)
+    i = int(i.split(' ')[0])
     T1  = dfs [i]
 
 
-    T1.columns = [col if isinstance(col, str) else ' - '.join(dict.fromkeys(col)).strip() for col in T1.columns.values] # https://stackoverflow.com/questions/14507794/pandas-how-to-flatten-a-hierarchical-index-in-columns
-    T1.columns = [re.sub("[\[].*?[\]]", "", c) for c in T1.columns.values]
+    
 
     data_types_list = ['Text', 'Integer', 'Float', 'Date']
     data_types = dict({x:i for i,x in enumerate(data_types_list)})
