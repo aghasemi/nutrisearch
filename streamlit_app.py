@@ -1,7 +1,15 @@
 import pandas as pd 
-import duckdb, re, math
+import duckdb, re, math, requests
 
 import streamlit as st
+
+import plotly.express as px 
+from lxml.html.clean import Cleaner
+
+
+def clean_html(raw_html):
+    cleaner = Cleaner(remove_tags=["sup", "b"])
+    return cleaner.clean_html(raw_html).decode("utf-8")
 
 def extract_number(s, num_sep=',', dec_sep='.', is_float = False):
     s =  re.sub("[\[\)].*?[\)\]]", "", str(s))
@@ -10,21 +18,27 @@ def extract_number(s, num_sep=',', dec_sep='.', is_float = False):
     s = s.replace('%', '')
     s = s.replace('\xa0', '')
     s = s.replace('\U00002013', '-') 
-    s = s.replace('−', '-') 
+    s = s.replace('−', '-')
+    s = s.replace('-', '-')
     s = s.replace(dec_sep, '.')
     s = s.strip()
-    s = float(s)
+    s = 0.0 if s=='-' else float(s)
     return s if is_float else int(s) if not math.isnan(s) else 0
 
+symbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up', 'triangle-down', 'triangle-left', 'triangle-right', 
+                                  'triangle-ne', 'triangle-nw', 'triangle-sw', 'triangle-se', 'pentagon', 'hexagon', 'hexagon2', 'hexagram', 'star', 'octagon']
 
 
 st.set_page_config(layout='wide')
 
-url = st.text_input(label='Please enter page address', value = 'https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(PPP)_per_capita')
+url = st.text_input(label='Please enter page address', value = 'https://en.wikipedia.org/wiki/List_of_cities_by_GDP')
 
 with st.expander(label = 'Modify thousands and decimal separator character'):
     num_sep = st.selectbox(label = 'Thousands separator', options=[',', '.', '\xa0'], index=1 if '://de.' in url else 0)
-    dec_sep = st.selectbox(label = 'Thousands separator', options=[',', '.'], index=0 if '://de.' in url else 0)
+    dec_sep = st.selectbox(label = 'Decimal separator', options=[',', '.'], index=0 if '://de.' in url else 1)
+
+
+raw_html = requests.get(url).text
 
 
 dfs = pd.read_html(url, thousands=num_sep, decimal=dec_sep)
@@ -55,7 +69,7 @@ else:
 
     with st.expander(label = 'Modify data types of columns'):
         aliases = dict({})
-        md_table = []
+        types_table = []
         for i,(col, dt) in enumerate(T1.dtypes.items()):
             alias = f'C{i+1}$'
             dt = str(dt)
@@ -71,12 +85,12 @@ else:
             if dt=='Float': T1[col] = T1[col].apply(lambda s: extract_number(str(s), num_sep=num_sep, dec_sep = dec_sep, is_float = True))
             if dt=='Date': T1[col] = pd.to_datetime(T1[col].apply(lambda s: re.sub("[\[].*?[\]]", "", str(s)).strip('*').strip()), errors='coerce')
 
-            md_table += [[alias, str(col), str(dt)]]
+            types_table += [[alias, str(col), str(dt)]]
 
 
     st.markdown('Columns')
-    md_table = pd.DataFrame(data=md_table, columns=('Column Alias', 'Column Name', 'Column Type'), index = None)
-    st.table(md_table)
+    types_table_df = pd.DataFrame(data=types_table, columns=('Column Alias', 'Column Name', 'Column Type'), index = None)
+    st.table(types_table_df)
 
     query = st.text_input(label= 'Please enter SQL query', value = 'SELECT  * from T1')
 
@@ -86,6 +100,35 @@ else:
     try:
         result = duckdb.query(query).to_df()
         st.dataframe(result, width = 20 * len(''.join(result.columns.values)), height= 10 * len(result))
+
+        with st.expander(label='Plot the table', expanded=False):
+
+            numerical_columns = [row[1] for row in types_table if row[2] in {'Float', 'Integer'}]
+            text_columns = [''] + [row[1] for row in types_table if row[2] in {'Text'}]
+            all_columns = [row[1] for row in types_table ]
+
+
+            if len(numerical_columns)>1:
+
+                x_column = st.selectbox('Please choose the column for the X axis', options=numerical_columns, index=0)
+                y_column = st.selectbox('Please choose the columen for the Y axis', options=numerical_columns, index=1)
+
+                #size_column = st.selectbox('Please choose the columen for the blob size', options=[''] + numerical_columns, index=0)
+                #color_column = st.selectbox('Please choose the columen for the blob color', options=[''] + numerical_columns, index=0)
+
+
+                title_column = st.selectbox('Please choose the column for the blob title', options=text_columns, index=0)
+                
+
+                fig = px.scatter(result, x=x_column, y=y_column, size=None, symbol= None, color= None ,log_y= False, log_x= False, height = 800, 
+                                symbol_sequence= symbols, 
+                                hover_name=None if len(title_column)==0 else title_column, hover_data ={x:True for x in  all_columns}
+                                ) #,hover_data={'Model Family': True, 'Parameters': True, 'ImageNet Top1 Error': True, 'Inference Time': True, 'Feature Vector Size': True, 'Input Size': True, 'Log(Inference Time)': False, 'Input Size (Categorised)': False}
+                #fig.layout.legend.x = 1.1
+                #fig.layout.coloraxis.colorbar.y = .55
+                fig.update_layout({'legend_orientation':'h'})
+
+                st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
         st.markdown(f'SQL Error: {e}')
