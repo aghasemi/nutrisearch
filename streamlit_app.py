@@ -25,6 +25,29 @@ def extract_number(s, num_sep=',', dec_sep='.', is_float = False):
     s = 0.0 if s=='-' else float(s)
     return s if is_float else int(s) if not math.isnan(s) else 0
 
+def get_types(df, allow_change = True):
+    aliases = dict({})
+    types_table = []
+    for i,(col, dt) in enumerate(df.dtypes.items()):
+        alias = f'{{C{i+1}}}'
+        dt = str(dt)
+        dt = 'Integer' if 'int' in dt else 'Float' if 'float' in dt  else 'Text'
+        aliases[alias] = f'"{col}"'
+
+        #c1, c2 =  st.columns([1,3])
+        #c1.markdown(f'{i+1:3}. {alias} {col}')
+        dt = st.selectbox(label = f'Please choose data type for {col}', options = data_types_list, key = col, index = data_types.get(dt, 0)) \
+            if allow_change else dt
+        
+        if dt=='Text': df[col] = df[col].apply(lambda s: re.sub("[\[].*?[\]]", "", str(s)).strip('*').strip())
+        if dt=='Integer': df[col] = df[col].apply(lambda s: extract_number(str(s), num_sep=num_sep, dec_sep = dec_sep, is_float = False))
+        if dt=='Float': df[col] = df[col].apply(lambda s: extract_number(str(s), num_sep=num_sep, dec_sep = dec_sep, is_float = True))
+        if dt=='Date': df[col] = pd.to_datetime(df[col].apply(lambda s: re.sub("[\[].*?[\]]", "", str(s)).strip('*').strip()), errors='coerce')
+
+        types_table += [[alias, str(col), str(dt)]]
+
+    return aliases, types_table
+
 symbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up', 'triangle-down', 'triangle-left', 'triangle-right', 
                                   'triangle-ne', 'triangle-nw', 'triangle-sw', 'triangle-se', 'pentagon', 'hexagon', 'hexagon2', 'hexagram', 'star', 'octagon']
 
@@ -68,24 +91,7 @@ else:
     data_types = dict({x:i for i,x in enumerate(data_types_list)})
 
     with st.expander(label = 'Modify data types of columns'):
-        aliases = dict({})
-        types_table = []
-        for i,(col, dt) in enumerate(T1.dtypes.items()):
-            alias = f'C{i+1}$'
-            dt = str(dt)
-            dt = 'Integer' if 'int' in dt else 'Float' if 'float' in dt  else 'Text'
-            aliases[alias] = f'"{col}"'
-
-            #c1, c2 =  st.columns([1,3])
-            #c1.markdown(f'{i+1:3}. {alias} {col}')
-            dt = st.selectbox(label = f'Please choose data type for {col}', options = data_types_list, key = col, index = data_types.get(dt, 0))
-            
-            if dt=='Text': T1[col] = T1[col].apply(lambda s: re.sub("[\[].*?[\]]", "", str(s)).strip('*').strip())
-            if dt=='Integer': T1[col] = T1[col].apply(lambda s: extract_number(str(s), num_sep=num_sep, dec_sep = dec_sep, is_float = False))
-            if dt=='Float': T1[col] = T1[col].apply(lambda s: extract_number(str(s), num_sep=num_sep, dec_sep = dec_sep, is_float = True))
-            if dt=='Date': T1[col] = pd.to_datetime(T1[col].apply(lambda s: re.sub("[\[].*?[\]]", "", str(s)).strip('*').strip()), errors='coerce')
-
-            types_table += [[alias, str(col), str(dt)]]
+        aliases, types_table = get_types(T1)
 
 
     st.markdown('Columns')
@@ -100,9 +106,9 @@ else:
     try:
         result = duckdb.query(query).to_df()
         st.dataframe(result, width = 20 * len(''.join(result.columns.values)), height= 10 * len(result))
-
+        _, types_table = get_types(result, allow_change = False)
         with st.expander(label='Plot the table', expanded=False):
-
+        
             numerical_columns = [row[1] for row in types_table if row[2] in {'Float', 'Integer'}]
             text_columns = [''] + [row[1] for row in types_table if row[2] in {'Text'}]
             all_columns = [row[1] for row in types_table ]
@@ -110,14 +116,14 @@ else:
 
             if len(numerical_columns)>1:
 
-                x_column = st.selectbox('Please choose the column for the X axis', options=numerical_columns, index=0)
-                y_column = st.selectbox('Please choose the columen for the Y axis', options=numerical_columns, index=1)
+                x_column = st.selectbox('Please choose the column for the X axis', options=numerical_columns, index=0, key = 0)
+                y_column = st.selectbox('Please choose the columen for the Y axis', options=numerical_columns, index=1, key = 1)
 
                 #size_column = st.selectbox('Please choose the columen for the blob size', options=[''] + numerical_columns, index=0)
                 #color_column = st.selectbox('Please choose the columen for the blob color', options=[''] + numerical_columns, index=0)
 
 
-                title_column = st.selectbox('Please choose the column for the blob title', options=text_columns, index=0)
+                title_column = st.selectbox('Please choose the column for the blob title', options=text_columns, index=0, key = 2)
                 
 
                 fig = px.scatter(result, x=x_column, y=y_column, size=None, symbol= None, color= None ,log_y= False, log_x= False, height = 800, 
