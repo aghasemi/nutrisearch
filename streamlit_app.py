@@ -54,6 +54,17 @@ symbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up', 'triangle-down
 
 st.set_page_config(layout='wide')
 
+with st.expander(label='About', expanded=False):
+    st.markdown('''
+        This small Streamlit app, powered by Pandas and DuckDB, allows you to run arbitrary SQL queries on Wikipedia tables and visualise/plot the results. Just provide a Wikipedia entry, 
+        choose one of the tables in the page, and enter a SQL query. You can also visualise the query results in a Scatter plot by specifying the horizontal and vertical columns.
+        
+        Parsing the table from the HTML page is performed by Pandas which normally does a good job of detecting the type of each column. However, you can also explicitly redefine column types if you want. 
+        You can also modify the thousands- and decimal separators, e.g. for German wikipedia which uses different symbols.  
+
+        If you see issues or have comments, please [contact me](https://mobile.twitter.com/a_ghasemi). 
+    ''')
+
 url = st.text_input(label='Please enter page address', value = 'https://en.wikipedia.org/wiki/List_of_cities_by_GDP')
 
 with st.expander(label = 'Modify thousands and decimal separator character'):
