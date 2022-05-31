@@ -8,20 +8,23 @@ import plotly.express as px
 
 @st.cache()
 def load_data():
-    df2 = pd.read_csv('https://www.dropbox.com/s/x1bpr7phh32mwwu/nutrition.csv?dl=1')
-    df2  = df2[['name', 'calories', 'total_fat', 'saturated_fat', 'cholesterol', 'carbohydrate', 'fiber', 'sugars']]
-    df2 = df2.fillna(value=0)
-    df2 = df2.rename(columns = {'cholesterol':'cholesterol_mg'}, errors='raise')
-    for col in [ 'calories', 'total_fat', 'saturated_fat', 'cholesterol_mg', 'carbohydrate', 'fiber', 'sugars']:
-        df2[col] = df2[col].apply(lambda s: re.sub("[^0-9\.]", "", str(s)))
-        df2[col] = df2[col].apply(lambda s: 0 if len(s)==0 else float(s))
-    return df2
+    df2 = pd.read_csv('generic.csv')
+    
+    df2['keywords'] = df2['name'].apply(lambda x:  [w.title() for w in str(x).split(', ') if len(w)>0])
+
+    kw = set([x for l in df2['keywords'] for x in l])
+
+    
+    
+    return df2, kw
 
 symbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up', 'triangle-down', 'triangle-left', 'triangle-right', 
                                   'triangle-ne', 'triangle-nw', 'triangle-sw', 'triangle-se', 'pentagon', 'hexagon', 'hexagon2', 'hexagram', 'star', 'octagon']
 
 
-st.set_page_config(layout='centered')
+st.set_page_config(layout='wide')
+
+st.title('What I Eat: Search for Common Grovery Items by Their Nutritional Value')
 
 with st.expander(label='About', expanded=False):
     st.markdown('''
@@ -31,19 +34,24 @@ with st.expander(label='About', expanded=False):
     ''')
 
 
-df = load_data()
+data, keywords = load_data()
 
-query = st.text_input(label='What food items are you looking for?')
+df = data.copy()
 
-df = df [ df['name'].str.lower().str.contains(query.lower())]
+query = st.multiselect(label='What food item(s) are you looking for?', options = keywords, default=None)
+
+df = df[ df['keywords'].apply(lambda ks: all([k in ks for k in query]) ) ] 
 
 carb_range = st.slider(label='Specify the desired amount of carbohydrates in 100 grams serving', min_value=0, max_value=100, value=(0,100))
 df = df.query(f"carbohydrate>={carb_range[0]} and carbohydrate<={carb_range[1]}")
 
 
+
 if len(df)<100:
+    sort_column = st.selectbox('Sort by ', options= ['calories', 'carbohydrate', 'total_fat'], format_func= lambda x: dict({'calories': 'Calories', 'carbohydrate': 'Carbohydrate', 'total_fat': 'Total Fat' })[x])
+    df = df.sort_values(by = sort_column)
     for i,row in df.iterrows():
-        with st.expander(label=f'{row["name"]}'):
+        with st.expander(label=f'{row["name"]}'): 
         
             st.markdown(f'_Calories_=__{row["calories"]}__ _Fat_=__{row["total_fat"]}__ _Carbs_=__{row["carbohydrate"]}__')
 else:
