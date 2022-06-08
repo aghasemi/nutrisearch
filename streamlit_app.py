@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import duckdb, re, math, requests, pathlib
 
 import streamlit as st
@@ -8,8 +9,8 @@ import plotly.express as px
 
 @st.cache()
 def load_data(country):
-    df2 = pd.read_csv(f"{country}.csv")
-
+    df2 = pd.read_csv(f"{country}.csv").dropna(subset=['keywords'])
+    df2['keywords'] = df2['keywords'].str.split('|')
     
     kw = pathlib.Path(f"keywords.{country}").read_text().split('\n')
     return df2, kw
@@ -72,7 +73,7 @@ query = st.multiselect(
     label="What are you looking for?", options=keywords, default=None
 )
 
-df = df[df["keywords"].apply(lambda ks: len(query)==0 or any([k in str(ks) for k in query]))]
+df = df[ df["keywords"].apply(lambda ks:  ( len(query)==0 or any([k in ks for k in query]))) ]
 
 if show_carbs:
     carb_range = st.slider(
@@ -96,10 +97,10 @@ if show_calories:
     calories_range = st.slider(
         label="Calories in 100 grams",
         min_value=0,
-        max_value=100,
-        value=(0, 100),
+        max_value=1000,
+        value=(0, 1000),
     )
-    df = df.query(f"{CALORIES_COLUMN_NAME}>={calories_range[0]} and {CALORIES_COLUMN_NAME}<={calories_range[1]}")
+    df = df.query(f"`{CALORIES_COLUMN_NAME}`>={calories_range[0]} and `{CALORIES_COLUMN_NAME}`<={calories_range[1]}")
 
 
 if len(df) < 100:
@@ -115,13 +116,20 @@ if len(df) < 100:
         )[x],
     )
     df = df.sort_values(by=sort_column)
+    st.markdown(f"### {len(df)} item(s) found")
+
     for i, row in df.iterrows():
         with st.expander(label=f'{row[NAME_COLUMN_NAME]} (⚡={row[CALORIES_COLUMN_NAME]:.0f}, 🍬={row[CARBS_COLUMN_NAME]:.0f}, 🧈={row[FAT_COLUMN_NAME]:.0f})'):
-
+            im_url = row['image_small_url']
+            sat_fat = row[SATURATED_FAT_COLUMN_NAME] if not np.isnan(row[SATURATED_FAT_COLUMN_NAME]) else '?'
+            cholesterol = row[CHOLESTEROL_COLUMN_NAME] if not np.isnan(row[CHOLESTEROL_COLUMN_NAME]) else '?'
+            sugar = row[SUGARS_COLUMN_NAME] if not np.isnan(row[SUGARS_COLUMN_NAME]) else '?'
+            fiber = row[FIBRE_COLUMN_NAME] if not np.isnan(row[FIBRE_COLUMN_NAME]) else '?'
+            
             st.markdown(
                 f'_Calories_=__{row[CALORIES_COLUMN_NAME]}__ _Fat_=__{row[FAT_COLUMN_NAME]}__ _Carbs_=__{row[CARBS_COLUMN_NAME]}__\n\n' 
-                + f'_Saturated Fat_=__{row[SATURATED_FAT_COLUMN_NAME]}__ _Cholesterol_=__{row[CHOLESTEROL_COLUMN_NAME]}__ _Sugar_=__{row[SUGARS_COLUMN_NAME]}__ Fiber=__{row[FIBRE_COLUMN_NAME]}__\n\n'
-
+                + f'_Saturated Fat_=__{sat_fat}__ _Cholesterol_=__{cholesterol}__ _Sugar_=__{sugar}__ Fiber=__{fiber}__\n\n'
             )
+            if im_url is not None: st.markdown(f'<p align="center"> <img src="{im_url}" /> </p>', unsafe_allow_html= True)
 else:
-    st.markdown("## Please specify more details")
+    st.markdown(f"### Too many ({len(df)}) items found. Please specify more details")
