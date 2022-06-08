@@ -1,5 +1,5 @@
 import pandas as pd
-import duckdb, re, math, requests
+import duckdb, re, math, requests, pathlib
 
 import streamlit as st
 
@@ -7,15 +7,11 @@ import plotly.express as px
 
 
 @st.cache()
-def load_data():
-    df2 = pd.read_csv("generic.csv")
+def load_data(country):
+    df2 = pd.read_csv(f"{country}.csv")
 
-    df2["keywords"] = df2["name"].apply(
-        lambda x: [w.title() for w in str(x).split(", ") if len(w) > 0]
-    )
-
-    kw = set([l[0] for l in df2["keywords"]])
-
+    
+    kw = pathlib.Path(f"keywords.{country}").read_text().split('\n')
     return df2, kw
 
 
@@ -40,33 +36,43 @@ symbols = [
     "octagon",
 ]
 
+CALORIES_COLUMN_NAME = 'energy-kcal_100g'
+FAT_COLUMN_NAME = 'fat_100g'
+CARBS_COLUMN_NAME = 'carbohydrates_100g'
 
-st.set_page_config(layout="wide")
+SATURATED_FAT_COLUMN_NAME = 'saturated-fat_100g'
+CHOLESTEROL_COLUMN_NAME = 'cholesterol_100g'
+SUGARS_COLUMN_NAME = 'sugars_100g'
+FIBRE_COLUMN_NAME = 'fiber_100g'
 
-st.title("NutriSearch: Search for Common Grocery Items by Their Nutritional Value")
+NAME_COLUMN_NAME = 'product_name'
+
+st.set_page_config(layout="wide", page_title="NutriSearch: Search for Common Grocery Items by Their Nutritional Value")
+
 
 with st.sidebar:
     with st.expander(label="About", expanded=False):
         st.markdown(
             """
-            TODO 
+             
 
             If you see issues or have comments, please [contact me](https://mobile.twitter.com/a_ghasemi). 
         """
         )
+    country = st.selectbox('Target country', options=['UK', 'CH'], index = 1).lower()
     show_carbs = st.checkbox('Show selector for Carbs', value=True)
     show_fats = st.checkbox('Show selector for Fat', value=False)
     show_calories = st.checkbox('Show selector for Calories', value=False)
 
-data, keywords = load_data()
+data, keywords = load_data(country)
 
 df = data.copy()
 
 query = st.multiselect( 
-    label="What food item(s) are you looking for?", options=keywords, default=None
+    label="What are you looking for?", options=keywords, default=None
 )
 
-df = df[df["keywords"].apply(lambda ks: len(query)==0 or any([k in ks for k in query]))]
+df = df[df["keywords"].apply(lambda ks: len(query)==0 or any([k in str(ks) for k in query]))]
 
 if show_carbs:
     carb_range = st.slider(
@@ -75,7 +81,7 @@ if show_carbs:
         max_value=100,
         value=(0, 100),
     )
-    df = df.query(f"carbohydrate>={carb_range[0]} and carbohydrate<={carb_range[1]}")
+    df = df.query(f"{CARBS_COLUMN_NAME}>={carb_range[0]} and {CARBS_COLUMN_NAME}<={carb_range[1]}")
 
 if show_fats:
     fat_range = st.slider(
@@ -84,7 +90,7 @@ if show_fats:
         max_value=100,
         value=(0, 100),
     )
-    df = df.query(f"total_fat>={fat_range[0]} and total_fat<={fat_range[1]}")
+    df = df.query(f"{FAT_COLUMN_NAME}>={fat_range[0]} and {FAT_COLUMN_NAME}<={fat_range[1]}")
 
 if show_calories:
     calories_range = st.slider(
@@ -93,28 +99,28 @@ if show_calories:
         max_value=100,
         value=(0, 100),
     )
-    df = df.query(f"calories>={calories_range[0]} and calories<={calories_range[1]}")
+    df = df.query(f"{CALORIES_COLUMN_NAME}>={calories_range[0]} and {CALORIES_COLUMN_NAME}<={calories_range[1]}")
 
 
 if len(df) < 100:
     sort_column = st.selectbox(
         "Sort by ",
-        options=["calories", "carbohydrate", "total_fat"],
+        options=[CALORIES_COLUMN_NAME, CARBS_COLUMN_NAME, FAT_COLUMN_NAME],
         format_func=lambda x: dict(
             {
-                "calories": "Calories",
-                "carbohydrate": "Carbohydrate",
-                "total_fat": "Total Fat",
+                CALORIES_COLUMN_NAME: "Calories",
+                CARBS_COLUMN_NAME: "Carbohydrate",
+                FAT_COLUMN_NAME: "Total Fat",
             }
         )[x],
     )
     df = df.sort_values(by=sort_column)
     for i, row in df.iterrows():
-        with st.expander(label=f'{row["name"]} (E={row["calories"]:.0f}, C={row["carbohydrate"]:.0f}, F={row["total_fat"]:.0f})'):
+        with st.expander(label=f'{row[NAME_COLUMN_NAME]} (⚡={row[CALORIES_COLUMN_NAME]:.0f}, 🍬={row[CARBS_COLUMN_NAME]:.0f}, 🧈={row[FAT_COLUMN_NAME]:.0f})'):
 
             st.markdown(
-                f'_Calories_=__{row["calories"]}__ _Fat_=__{row["total_fat"]}__ _Carbs_=__{row["carbohydrate"]}__\n\n' 
-                + f'_Saturated Fat_=__{row["saturated_fat"]}__ _Cholesterol_=__{row["cholesterol_mg"]}__ _Sugar_=__{row["sugars"]}__ Fiber=__{row["fiber"]}__\n\n'
+                f'_Calories_=__{row[CALORIES_COLUMN_NAME]}__ _Fat_=__{row[FAT_COLUMN_NAME]}__ _Carbs_=__{row[CARBS_COLUMN_NAME]}__\n\n' 
+                + f'_Saturated Fat_=__{row[SATURATED_FAT_COLUMN_NAME]}__ _Cholesterol_=__{row[CHOLESTEROL_COLUMN_NAME]}__ _Sugar_=__{row[SUGARS_COLUMN_NAME]}__ Fiber=__{row[FIBRE_COLUMN_NAME]}__\n\n'
 
             )
 else:
