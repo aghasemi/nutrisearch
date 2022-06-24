@@ -26,6 +26,9 @@ FIBRE_COLUMN_NAME = "fiber"
 
 NAME_COLUMN_NAME = "name"
 URL_COLUMN_NAME = "url"
+STORE_COLUMN_NAME = "store"
+COUNTRY_COLUMN_NAME = "country"
+
 IMAGE_COLUMN_NAME = "image"
 
 stores = {"coop": "Coop (CH)"}
@@ -45,7 +48,7 @@ with st.sidebar:
             If you see issues or have comments, please [contact me](https://mobile.twitter.com/a_ghasemi). 
         """
         )
-    country = st.selectbox(
+    grocery_store = st.selectbox(
         "Grocery store",
         options=list(stores.keys()),
         format_func=lambda x: stores[x],
@@ -55,7 +58,7 @@ with st.sidebar:
     show_fats = st.checkbox("Show selector for Fat", value=False)
     show_calories = st.checkbox("Show selector for Calories", value=False)
 
-data, keywords = load_data(country)
+data, keywords = load_data(grocery_store)
 
 df = data.copy()
 
@@ -101,7 +104,7 @@ if show_calories:
     )
 
 
-if len(df) < 100:
+if len(df) < 150:
     sort_column = st.selectbox(
         "Sort by ",
         options=[CALORIES_COLUMN_NAME, CARBS_COLUMN_NAME, FAT_COLUMN_NAME],
@@ -122,8 +125,9 @@ if len(df) < 100:
             label=f"{row[NAME_COLUMN_NAME]} (⚡={row[CALORIES_COLUMN_NAME]:.0f}, 🍬={row[CARBS_COLUMN_NAME]:.0f}, 🧈={row[FAT_COLUMN_NAME]:.0f})"
         ):
             im_url = row[IMAGE_COLUMN_NAME]
-            # im_nutr_url = row['image_nutrition_small_url']
-            # im_ingr_url = row['image_ingredients_small_url']
+            item_url = row[URL_COLUMN_NAME]
+            store = row[STORE_COLUMN_NAME]
+            country = row[COUNTRY_COLUMN_NAME]
 
             sat_fat = (
                 row[SATURATED_FAT_COLUMN_NAME]
@@ -148,8 +152,8 @@ if len(df) < 100:
                     f'<p align="center"> <img src="{im_url}"  width="60%" /> </p>',
                     unsafe_allow_html=True,
                 )
-
-            st.markdown(f"__[Visit in the store website]({row[URL_COLUMN_NAME]})__")
+            if item_url is not None:
+                st.markdown(f"__[View in the {store} ({country}) website for more details]({row[URL_COLUMN_NAME]})__")
 
 
 else:
