@@ -9,23 +9,26 @@ import plotly.express as px
 
 @st.cache()
 def load_data(country):
-    df2 = pd.read_pickle(f"{country}.pkl")#.dropna(subset=["keywords"])
-    #df2["keywords"] = df2["keywords"].str.split("|")
+    df2 = pd.read_pickle(f"facts.{country}.pkl")  # .dropna(subset=["keywords"])
+    # df2["keywords"] = df2["keywords"].str.split("|")
 
     kw = pathlib.Path(f"keywords.{country}").read_text().split("\n")
     return df2, kw
 
 
-CALORIES_COLUMN_NAME = "energy-kcal_100g"
-FAT_COLUMN_NAME = "fat_100g"
-CARBS_COLUMN_NAME = "carbohydrates_100g"
+CALORIES_COLUMN_NAME = "energy"
+FAT_COLUMN_NAME = "fat"
+CARBS_COLUMN_NAME = "carbs"
 
-SATURATED_FAT_COLUMN_NAME = "saturated-fat_100g"
-CHOLESTEROL_COLUMN_NAME = "cholesterol_100g"
-SUGARS_COLUMN_NAME = "sugars_100g"
-FIBRE_COLUMN_NAME = "fiber_100g"
+SATURATED_FAT_COLUMN_NAME = "saturated_fat"
+SUGARS_COLUMN_NAME = "sugars"
+FIBRE_COLUMN_NAME = "fiber"
 
-NAME_COLUMN_NAME = "product_name"
+NAME_COLUMN_NAME = "name"
+URL_COLUMN_NAME = "url"
+IMAGE_COLUMN_NAME = "image"
+
+stores = {"coop": "Coop (CH)"}
 
 st.set_page_config(
     layout="wide",
@@ -42,7 +45,12 @@ with st.sidebar:
             If you see issues or have comments, please [contact me](https://mobile.twitter.com/a_ghasemi). 
         """
         )
-    country = st.selectbox("Target country", options=["UK", "CH"], index=1).lower()
+    country = st.selectbox(
+        "Grocery store",
+        options=list(stores.keys()),
+        format_func=lambda x: stores[x],
+        index=0,
+    ).lower()
     show_carbs = st.checkbox("Show selector for Carbs", value=True)
     show_fats = st.checkbox("Show selector for Fat", value=False)
     show_calories = st.checkbox("Show selector for Calories", value=False)
@@ -56,7 +64,7 @@ query = st.multiselect(
 )
 
 df = df[
-    df["keywords_parsed"].apply(lambda ks: len(query) == 0 or any([k in ks for k in query]) )
+    df["keywords"].apply(lambda ks: len(query) == 0 or any([k in ks for k in query]))
 ]
 
 if show_carbs:
@@ -104,6 +112,7 @@ if len(df) < 100:
                 FAT_COLUMN_NAME: "Total Fat",
             }
         )[x],
+        index=1,
     )
     df = df.sort_values(by=sort_column)
     st.markdown(f"### {len(df)} item(s) found")
@@ -112,18 +121,13 @@ if len(df) < 100:
         with st.expander(
             label=f"{row[NAME_COLUMN_NAME]} (⚡={row[CALORIES_COLUMN_NAME]:.0f}, 🍬={row[CARBS_COLUMN_NAME]:.0f}, 🧈={row[FAT_COLUMN_NAME]:.0f})"
         ):
-            im_url = row["image_small_url"]
-            im_nutr_url = row['image_nutrition_small_url'] 
-            im_ingr_url = row['image_ingredients_small_url']
+            im_url = row[IMAGE_COLUMN_NAME]
+            # im_nutr_url = row['image_nutrition_small_url']
+            # im_ingr_url = row['image_ingredients_small_url']
 
             sat_fat = (
                 row[SATURATED_FAT_COLUMN_NAME]
                 if not np.isnan(row[SATURATED_FAT_COLUMN_NAME])
-                else "?"
-            )
-            cholesterol = (
-                row[CHOLESTEROL_COLUMN_NAME]
-                if not np.isnan(row[CHOLESTEROL_COLUMN_NAME])
                 else "?"
             )
             sugar = (
@@ -137,23 +141,16 @@ if len(df) < 100:
 
             st.markdown(
                 f"_Calories_=__{row[CALORIES_COLUMN_NAME]}__ _Fat_=__{row[FAT_COLUMN_NAME]}__ _Carbs_=__{row[CARBS_COLUMN_NAME]}__\n\n"
-                + f"_Saturated Fat_=__{sat_fat}__ _Cholesterol_=__{cholesterol}__ _Sugar_=__{sugar}__ Fiber=__{fiber}__\n\n"
+                + f"_Saturated Fat_=__{sat_fat}__ _Sugar_=__{sugar}__ Fiber=__{fiber}__\n\n"
             )
             if im_url is not None:
                 st.markdown(
                     f'<p align="center"> <img src="{im_url}" /> </p>',
                     unsafe_allow_html=True,
                 )
-            if im_url is not None:
-                st.markdown(
-                    f'<p align="center"> <img src="{im_url}" /> </p>',
-                    unsafe_allow_html=True,
-                )
-            if im_nutr_url is not None:
-                st.markdown(
-                    f'<p align="center"> <img src="{im_nutr_url}" /> </p>',
-                    unsafe_allow_html=True,
-                )
+
+            st.markdown(f"__[Visit in the store website]({row[URL_COLUMN_NAME]})__")
+
 
 else:
     st.markdown(f"### Too many ({len(df)}) items found. Please specify more details")
