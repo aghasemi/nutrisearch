@@ -31,7 +31,7 @@ IMAGE_COLUMN_NAME = "image"
 stores = {"coop": "Coop (CH)"}
 
 st.set_page_config(
-    layout="wide",
+    layout="centered",
     page_title="NutriSearch: Search for Common Grocery Items by Their Nutritional Value",
 )
 
@@ -145,7 +145,7 @@ if len(df) < 100:
             )
             if im_url is not None:
                 st.markdown(
-                    f'<p align="center"> <img src="{im_url}" /> </p>',
+                    f'<p align="center"> <img src="{im_url}"  width="60%" /> </p>',
                     unsafe_allow_html=True,
                 )
 
