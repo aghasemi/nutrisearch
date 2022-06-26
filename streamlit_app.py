@@ -12,7 +12,7 @@ def load_data(country):
     df2 = pd.read_pickle(f"facts.{country}.pkl")  # .dropna(subset=["keywords"])
     # df2["keywords"] = df2["keywords"].str.split("|")
 
-    kw = pathlib.Path(f"keywords.{country}").read_text().split("\n")
+    kw = sorted(list({k for it in df2.itertuples() for k in it.keywords }))
     return df2, kw
 
 
