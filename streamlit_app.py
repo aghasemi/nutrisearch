@@ -153,7 +153,8 @@ if len(df) < 150:
                     unsafe_allow_html=True,
                 )
             if item_url is not None:
-                st.markdown(f"__[View in the {store} ({country}) website for more details]({row[URL_COLUMN_NAME]})__")
+                st.markdown(f"__[View in the {store} ({country}) website for more details]({row[URL_COLUMN_NAME]})__\n\n")
+            st.markdown(f"\n\n\n\n<footer><small><i>Tags: {', '.join(row['keywords'])}</i></small></footer>", unsafe_allow_html=True)
 
 
 else:
